@@ -56,6 +56,5 @@ Create & manage directory structures as below
 - create app-name folders if not already present
 - place the input in the corresponding input folders
 - unzip the input and place the output in corresponding folders
-3.
 
 '''
