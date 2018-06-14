@@ -4,3 +4,5 @@ write a shell script to
 - check for the pre-requisites
 - set the path of the tools folder
 - set the directory structure in the constants file
+
+Inside the other tools folder, maintain the git links of all the tools & write a shell script to update them periodically
