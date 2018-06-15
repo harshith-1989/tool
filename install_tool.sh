@@ -25,6 +25,10 @@ usage () {
     elif [ "$1" == "-installation_folder" ]
     then
         root_folder=$2
+        if [ ! -d "$root_folder" ]
+        then
+            echo "Please enter an existant folder on the machine"
+        fi
     else
         echo -e "Invalid Argument!!\nUsage: $usage"
     fi
