@@ -1,19 +1,30 @@
 #!/usr/bin/env bash
 
 ### Specify the folder structure & variables
-## input
-    root_folder=""
 ## constants
      error_string="command not found"
      usage="$(basename "$0") -installation_folder <installation folder location>"
 
-# to get the scripts
-    git_download_url='https://github.com/tool/archive/master.zip'
-    output_file='/tmp/tmp/tool.zip'
-    curl_command_without_proxy="curl -k -L $git_download_url -o $output_file"
+## input
+    root_folder=""
 
-# folder structures
+## to get the scripts
+    git_download_url='https://github.com/tool/archive/master.zip'
+    internal_download_url='http://localhost/~digitalsecurity/downloads/tool-master.zip'
+    proxy_address='proxy.tcs.com:8080'
+    output_file='/tmp/tmp/tool.zip'
+    curl_command="curl -k -L $download_url -o $output_file"
+
+## folder structures
     folder_structure=( "RESOURCE_FOLDER:resources" "INPUT_IOS_FOLDER:input/iOS" "INPUT_ANDROID_FOLDER:input/Android" "OUTPUT_IOS_FOLDER:output/iOS" "OUTPUT_ANDROID_FOLDER:output/Android" "LOGS_IOS_FOLDER:logs/iOS" "LOGS_ANDROID_FOLDER:logs/Android" "TMP_FOLDER:tmp" "REPORT_FOLDER:report" )
+
+
+### error handling function
+handle_error () {
+    echo "$1"
+    echo "Aborting..."
+    exit 1
+}
 
 ### usage of the script
 usage () {
@@ -27,7 +38,7 @@ usage () {
         root_folder=$2
         if [ ! -d "$root_folder" ]
         then
-            echo "Please enter an existant folder on the machine"
+            echo "Please enter an existent folder on the machine"
         fi
     else
         echo -e "Invalid Argument!!\nUsage: $usage"
@@ -36,11 +47,19 @@ usage () {
 }
 
 
-### error handling function
-handle_error () {
-    echo "$1"
-    echo "Aborting..."
-    exit 1
+#####################################################################################
+# reachability_check : check for reachability of URLs
+# arguments : URL
+# return value : boolean
+#####################################################################################
+reachability_check () {
+    server=$1
+    if $( curl --output /dev/null --silent --head --fail "$server" )
+    then
+        echo "TRUE"
+    else
+        echo "FALSE"
+    fi
 }
 
 #####################################################################################
@@ -82,7 +101,11 @@ check_if_python_installed() {
     done
 }
 
-### create folder structure by deleting the existing one if already present
+#####################################################################################
+# create_folder_structure : create folder structure by deleting the existing one if already present
+# arguments : none
+# return value : boolean, string
+#####################################################################################
 create_folder_structure () {
     for folder in "${@}"
     do
@@ -93,7 +116,60 @@ create_folder_structure () {
     done
 }
 
+
+#####################################################################################
+# download_scripts_and_tools : download tools and setup directories
+# arguments : none
+# return value : none
+#####################################################################################
+### download src scripts & other_tools
+download_scripts_and_tools () {
+#Check if servers are reachable
+    download_url=""
+    if [ "$( reachability_check $proxy_address )" == "TRUE" ]
+    then
+        if [ "$( reachability_check $internal_download_url )" == "TRUE" ]
+        then
+            download_url=$internal_download_url
+        else
+            handle_error "Error: Link $internal_download_url not reachable"
+        fi
+    else
+        if [ "$( reachability_check $git_download_url )" == "TRUE" ]
+        then
+            download_url=$git_download_url
+        else
+            handle_error "Error: Link $git_download_url not reachable"
+        fi
+    fi
+#Generate output folder
+    mkdir -p $( dirname $output_file )
+#Download the tool
+    $( $curl_command ) || echo "cURL command failed with error : $error_msg"
+#Check zip file structure
+    if [ -e $output_file ]
+    then
+        if [[ $( zip -T $output_file ) =~ "Zip file structure invalid" ]]
+        then
+            echo -e "\nDownloaded zip file is corrupted... Retrying"
+            $( $curl_command ) || echo "cURL command failed with error : $error_msg"
+        else
+            unzip $output_file -d /tmp/tmp
+            rm -rf $output_file
+
+            cp -rf /tmp/tmp/*/Scripts $root_folder
+            rm -rf /tmp/tmp/*/Scripts
+
+            unzip /tmp/tmp/*/*.zip -d /tmp/tmp/other_tools || handle_error "Error: Unzip failed for : /tmp/tmp/*/*.zip"
+            cp -rf /tmp/tmp/other_tools $root_folder
+            rm -rf /tmp/tmp
+            break
+        fi
+    fi
+}
+
 usage $@
+check_reachabiltiy_of_servers $proxy_address $git_download_url
 check_if_python_installed
 check_if_java_installed
 create_folder_structure ${folder_structure[@]}
