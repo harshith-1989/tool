@@ -9,15 +9,25 @@
     root_folder=""
 
 ## to get the scripts
-    git_download_url='https://github.com/tool/archive/master.zip'
+    git_download_url='https://github.com/harshith-1989/tool/archive/master.zip'
     internal_download_url='http://localhost/~digitalsecurity/downloads/tool-master.zip'
     proxy_address='proxy.tcs.com:8080'
-    output_file='/tmp/tmp/tool.zip'
-    curl_command="curl -k -L $download_url -o $output_file"
 
+## File paths
+    output_file='/tmp/tmp/tool.zip'
+    BASH_PROFILE_PATH="${HOME}/.bash_profile"
+    BACKUP_BASH_PROFILE_PATH="${HOME}/.bash_profile_bak"
+    OTHER_TOOLS_LOCATION="resources/other_tools"
+    CONSTANTS_FILE_LOCATION="Scripts/Constants.py"
 ## folder structures
     folder_structure=( "RESOURCE_FOLDER:resources" "INPUT_IOS_FOLDER:input/iOS" "INPUT_ANDROID_FOLDER:input/Android" "OUTPUT_IOS_FOLDER:output/iOS" "OUTPUT_ANDROID_FOLDER:output/Android" "LOGS_IOS_FOLDER:logs/iOS" "LOGS_ANDROID_FOLDER:logs/Android" "TMP_FOLDER:tmp" "REPORT_FOLDER:report" )
 
+# resources folder for tools
+# input/iOS & android folder will have the app-name folder with 2 folders within, app folder & app-source-code folder
+# output/iOS & android folder will have the app-name folder with 2 folders within, app folder & app-source-code folder
+# logs/iOS & android folder will have the app-name folder with 2 folders within, app folder & app-source-code folder
+# temp folder for the temp operations
+# Report folder for the report operations
 
 ### error handling function
 handle_error () {
@@ -45,7 +55,6 @@ usage () {
     fi
 
 }
-
 
 #####################################################################################
 # reachability_check : check for reachability of URLs
@@ -145,31 +154,55 @@ download_scripts_and_tools () {
 #Generate output folder
     mkdir -p $( dirname $output_file )
 #Download the tool
-    $( $curl_command ) || echo "cURL command failed with error : $error_msg"
+    curl_command="curl -k -L $download_url -o $output_file"
+    $( $curl_command ) || echo "cURL command failed with error"
 #Check zip file structure
     if [ -e $output_file ]
     then
         if [[ $( zip -T $output_file ) =~ "Zip file structure invalid" ]]
         then
             echo -e "\nDownloaded zip file is corrupted... Retrying"
-            $( $curl_command ) || echo "cURL command failed with error : $error_msg"
+            $( $curl_command ) || echo "cURL command failed with error"
         else
             unzip $output_file -d /tmp/tmp
             rm -rf $output_file
 
-            cp -rf /tmp/tmp/*/Scripts $root_folder
+            cp -rf /tmp/tmp/*/Scripts "$root_folder"
             rm -rf /tmp/tmp/*/Scripts
 
             unzip /tmp/tmp/*/*.zip -d /tmp/tmp/other_tools || handle_error "Error: Unzip failed for : /tmp/tmp/*/*.zip"
-            cp -rf /tmp/tmp/other_tools $root_folder
+            cp -rf /tmp/tmp/other_tools "$root_folder"/resources
             rm -rf /tmp/tmp
-            break
         fi
     fi
 }
 
-usage $@
-check_reachabiltiy_of_servers $proxy_address $git_download_url
+#####################################################################################
+# write_to_constants_file : write the path variable to the Constants.py file
+# arguments : none
+# return value : none
+#####################################################################################
+write_to_constants_file () {
+    cat /tmp/tmp.txt >> $root_folder"/${CONSTANTS_FILE_LOCATION}"
+}
+
+#####################################################################################
+# set_path_variable : configure the path for the usage of the tools
+# arguments : none
+# return value : none
+#####################################################################################
+set_path_variable () {
+    cp -f ${BASH_PROFILE_PATH} ${BACKUP_BASH_PROFILE_PATH}
+    echo "######## Added by security tool" >> ${BASH_PROFILE_PATH}
+    echo "export PATH=$PATH:$root_folder/${OTHER_TOOLS_LOCATION}" >> ${BASH_PROFILE_PATH}
+    . ${BASH_PROFILE_PATH}
+
+}
+
+usage "${@}"
 check_if_python_installed
 check_if_java_installed
-create_folder_structure ${folder_structure[@]}
+create_folder_structure "${folder_structure[@]}"
+download_scripts_and_tools
+write_to_constants_file
+set_path_variable
