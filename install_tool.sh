@@ -11,7 +11,7 @@
 ## to get the scripts
     git_download_url='https://github.com/harshith-1989/tool/archive/master.zip'
     internal_download_url='http://localhost/~digitalsecurity/downloads/tool-master.zip'
-    proxy_address='proxy.tcs.com:8080'
+    proxy_address='proxy.tcs.com'
 
 ## File paths
     output_file='/tmp/tmp/tool.zip'
@@ -50,6 +50,7 @@ usage () {
         then
             echo "Please enter an existent folder on the machine"
         fi
+        echo "${root_folder} exists, proceeding with installation..."
     else
         echo -e "Invalid Argument!!\nUsage: $usage"
     fi
@@ -80,7 +81,7 @@ check_if_java_installed() {
    execution_output="$( java -version 2>&1 | head -n 1 )"
    if [[ "$execution_output" = *"$error_string"* ]]
    then
-       echo "$execution_output" && handle_error "Java is not installed on the machine"
+       echo "Java is not installed on the machine or not configured to path" && handle_error "$execution_output"
    else
        echo "$execution_output is installed on system"
        if [[ ( "$execution_output" = *"1.5"* ) || ( "$execution_output" = *"1.6"* ) || ( "$execution_output" = *"1.7"* ) ]]
@@ -100,10 +101,11 @@ check_if_python_installed() {
 
     for python_executable in "${generic_python_executables[@]}"
     do
+        echo "Checking for ${python_executable}..."
         execution_output="$( $python_executable -V 2>&1 )"
         if [[ "$execution_output" = *"$error_string"* ]]
         then
-            handle_error "$execution_output"
+            echo "${python_executable} is a pre-requisite. Its either not installed or not in path." && handle_error "$execution_output"
         else
             echo "$execution_output version of python is installed on system"
         fi
@@ -120,7 +122,8 @@ create_folder_structure () {
     do
         KEY="${folder%%:*}"
         VALUE="${folder#*:}"
-        mkdir -p "$root_folder""$VALUE"
+        echo "Creating folder : ${VALUE} at ${root_folder}${VALUE}"
+        mkdir -p "$root_folder""$VALUE" || handle_error "Unable to create folder, please make sure you have appropriate permissions"
         echo -e "$KEY = \"$root_folder$VALUE\"\n" >> /tmp/tmp.txt
     done
 }
@@ -134,27 +137,33 @@ create_folder_structure () {
 ### download src scripts & other_tools
 download_scripts_and_tools () {
 #Check if servers are reachable
+
     download_url=""
     if [ "$( reachability_check $proxy_address )" == "TRUE" ]
     then
+        echo "TCS Internal proxy server is reachable..."
         if [ "$( reachability_check $internal_download_url )" == "TRUE" ]
         then
+            echo "TCS Internal tool-download-URL is reachable..."
             download_url=$internal_download_url
         else
             handle_error "Error: Link $internal_download_url not reachable"
         fi
     else
+        echo "TCS Internal proxy server is not reachable..."
+        echo "Trying git download link..."
         if [ "$( reachability_check $git_download_url )" == "TRUE" ]
         then
+            echo "git tool-download-URL is reachable..."
             download_url=$git_download_url
         else
             handle_error "Error: Link $git_download_url not reachable"
         fi
     fi
 #Generate output folder
-    mkdir -p $( dirname $output_file )
+    mkdir -p $( dirname $output_file ) || handle_error "Unable to create folder, please make sure you have appropriate permissions"
 #Download the tool
-    curl_command="curl -k -L $download_url -o $output_file"
+    curl_command="curl -k -L $download_url -o $output_file" || handle_error "cURL command failed to download the tool"
     $( $curl_command ) || echo "cURL command failed with error"
 #Check zip file structure
     if [ -e $output_file ]
@@ -164,6 +173,7 @@ download_scripts_and_tools () {
             echo -e "\nDownloaded zip file is corrupted... Retrying"
             $( $curl_command ) || echo "cURL command failed with error"
         else
+        # transfer the contents to the created folder structure
             unzip $output_file -d /tmp/tmp
             rm -rf $output_file
 
@@ -183,6 +193,7 @@ download_scripts_and_tools () {
 # return value : none
 #####################################################################################
 write_to_constants_file () {
+    echo "Writing directoy paths to the Constants file..."
     cat /tmp/tmp.txt >> $root_folder"/${CONSTANTS_FILE_LOCATION}"
 }
 
@@ -192,11 +203,25 @@ write_to_constants_file () {
 # return value : none
 #####################################################################################
 set_path_variable () {
-    cp -f ${BASH_PROFILE_PATH} ${BACKUP_BASH_PROFILE_PATH}
-    echo "######## Added by security tool" >> ${BASH_PROFILE_PATH}
-    echo "export PATH=$PATH:$root_folder/${OTHER_TOOLS_LOCATION}" >> ${BASH_PROFILE_PATH}
-    . ${BASH_PROFILE_PATH}
 
+    ## file paths
+    APKTOOL_JAR_PATH="$root_folder/${OTHER_TOOLS_LOCATION}/apktool.jar"
+    SQLMAP_PATH="$root_folder/${OTHER_TOOLS_LOCATION}/sqlmap-dev/sqlmap.py"
+    NIKTO_PATH="$root_folder/${OTHER_TOOLS_LOCATION}/nikto-master/program/nikto.pl"
+    ENJARIFY_PATH="$root_folder/${OTHER_TOOLS_LOCATION}/enjarify-master/enjarify.sh"
+    JDGUI_PATH="$root_folder/${OTHER_TOOLS_LOCATION}/jd-core.jar"
+
+    ##  Write tool's paths to the bash profile
+    cp -f ${BASH_PROFILE_PATH} ${BACKUP_BASH_PROFILE_PATH}
+    echo "######## Added by security tool on $( date )" >> ${BASH_PROFILE_PATH}
+    echo "######## Old bash_profile is at : ${BACKUP_BASH_PROFILE_PATH}" >> ${BASH_PROFILE_PATH}
+    echo "export PATH=$PATH:$root_folder/${OTHER_TOOLS_LOCATION}:$root_folder/${OTHER_TOOLS_LOCATION}\n" >> ${BASH_PROFILE_PATH}
+    echo "export apktool=\"java -jar ${APKTOOL_JAR_PATH}\"" >> ${BASH_PROFILE_PATH}
+    echo "export sqlmap=\"python3 ${SQLMAP_PATH}\"" >> ${BASH_PROFILE_PATH}
+    echo "export nikto=\"perl ${NIKTO_PATH}\"" >> ${BASH_PROFILE_PATH}
+    echo "export enjarify=\".$root_folder/${OTHER_TOOLS_LOCATION}/enjarify-master/enjarify.sh\"" >> ${BASH_PROFILE_PATH}
+    echo "export jdgui=\"java -jar ${JDGUI_PATH}\"" >> ${BASH_PROFILE_PATH}
+    source ${BASH_PROFILE_PATH}
 }
 
 usage "${@}"
@@ -204,5 +229,6 @@ check_if_python_installed
 check_if_java_installed
 create_folder_structure "${folder_structure[@]}"
 download_scripts_and_tools
+#configure_the_tool
 write_to_constants_file
 set_path_variable
