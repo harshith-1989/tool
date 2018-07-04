@@ -1,12 +1,12 @@
-#!/usr/bin/env bash
+#!/bin/sh
 
 ### Specify the folder structure & variables
 ## constants
      error_string="command not found"
-     usage="$(basename "$0") -installation_folder <installation folder location>"
+     usage="$(basename "$0") -p <installation folder location>"
 
 ## input
-    root_folder=""
+    installation_folder=""
 
 ## to get the scripts
     git_download_url='https://github.com/harshith-1989/tool/archive/master.zip'
@@ -14,13 +14,14 @@
     proxy_address='proxy.tcs.com'
 
 ## File paths
-    output_file='/tmp/tmp/tool.zip'
+    downloaded_tool_zip='.tmp/tool.zip'
     BASH_PROFILE_PATH="${HOME}/.bash_profile"
     BACKUP_BASH_PROFILE_PATH="${HOME}/.bash_profile_bak"
+    TMP_FOLDER_LOCATION=".tmp"
     OTHER_TOOLS_LOCATION="resources/other_tools"
     CONSTANTS_FILE_LOCATION="Scripts/Constants.py"
 ## folder structures
-    folder_structure=( "RESOURCE_FOLDER:resources" "INPUT_IOS_FOLDER:input/iOS" "INPUT_ANDROID_FOLDER:input/Android" "OUTPUT_IOS_FOLDER:output/iOS" "OUTPUT_ANDROID_FOLDER:output/Android" "LOGS_IOS_FOLDER:logs/iOS" "LOGS_ANDROID_FOLDER:logs/Android" "TMP_FOLDER:tmp" "REPORT_FOLDER:report" )
+    folder_structure=( "RESOURCE_FOLDER:resources" "INPUT_IOS_FOLDER:input/iOS" "INPUT_ANDROID_FOLDER:input/Android" "OUTPUT_IOS_FOLDER:output/iOS" "OUTPUT_ANDROID_FOLDER:output/Android" "LOGS_IOS_FOLDER:logs/iOS" "LOGS_ANDROID_FOLDER:logs/Android" "TMP_FOLDER:.tmp" "REPORT_FOLDER:report" )
 
 # resources folder for tools
 # input/iOS & android folder will have the app-name folder with 2 folders within, app folder & app-source-code folder
@@ -34,27 +35,6 @@ handle_error () {
     echo "$1"
     echo "Aborting..."
     exit 1
-}
-
-### usage of the script
-usage () {
-
-    if [ "$1" == "-h" ]
-    then
-        echo -e "Usage: $usage"
-        exit 0
-    elif [ "$1" == "-installation_folder" ]
-    then
-        root_folder=$2
-        if [ ! -d "$root_folder" ]
-        then
-            echo "Please enter an existent folder on the machine"
-        fi
-        echo "${root_folder} exists, proceeding with installation..."
-    else
-        echo -e "Invalid Argument!!\nUsage: $usage"
-    fi
-
 }
 
 #####################################################################################
@@ -122,9 +102,9 @@ create_folder_structure () {
     do
         KEY="${folder%%:*}"
         VALUE="${folder#*:}"
-        echo "Creating folder : ${VALUE} at ${root_folder}${VALUE}"
-        mkdir -p "$root_folder""$VALUE" || handle_error "Unable to create folder, please make sure you have appropriate permissions"
-        echo -e "$KEY = \"$root_folder$VALUE\"\n" >> /tmp/tmp.txt
+        echo "Creating folder : ${VALUE} at ${installation_folder}/${VALUE}"
+        mkdir -p "$installation_folder/""$VALUE" || handle_error "Unable to create folder, please make sure you have appropriate permissions"
+        echo -e "$KEY = \"$installation_folder/$VALUE\"\n" >> /tmp/tmp.txt
     done
 }
 
@@ -161,28 +141,27 @@ download_scripts_and_tools () {
         fi
     fi
 #Generate output folder
-    mkdir -p $( dirname $output_file ) || handle_error "Unable to create folder, please make sure you have appropriate permissions"
+    mkdir -p $( dirname $downloaded_tool_zip ) || handle_error "Unable to create folder, please make sure you have appropriate permissions"
 #Download the tool
-    curl_command="curl -k -L $download_url -o $output_file" || handle_error "cURL command failed to download the tool"
+    curl_command="curl -k -L $download_url -o $downloaded_tool_zip"
     $( $curl_command ) || echo "cURL command failed with error"
 #Check zip file structure
-    if [ -e $output_file ]
+    if [ -e $downloaded_tool_zip ]
     then
-        if [[ $( zip -T $output_file ) =~ "Zip file structure invalid" ]]
+        if [[ $( zip -T $downloaded_tool_zip ) =~ "Zip file structure invalid" ]]
         then
             echo -e "\nDownloaded zip file is corrupted... Retrying"
             $( $curl_command ) || echo "cURL command failed with error"
         else
         # transfer the contents to the created folder structure
-            unzip $output_file -d /tmp/tmp
-            rm -rf $output_file
+            unzip $downloaded_tool_zip -d "$installation_folder"/"$TMP_FOLDER_LOCATION"
+            rm -rf $downloaded_tool_zip
 
-            cp -rf /tmp/tmp/*/Scripts "$root_folder"
-            rm -rf /tmp/tmp/*/Scripts
+            cp -rf "$installation_folder"/"$TMP_FOLDER_LOCATION"/*/Scripts "$installation_folder/"
+            rm -rf "$installation_folder"/"$TMP_FOLDER_LOCATION"/*/Scripts
 
-            unzip /tmp/tmp/*/*.zip -d /tmp/tmp/other_tools || handle_error "Error: Unzip failed for : /tmp/tmp/*/*.zip"
-            cp -rf /tmp/tmp/other_tools "$root_folder"/resources
-            rm -rf /tmp/tmp
+            unzip "$installation_folder"/"$TMP_FOLDER_LOCATION"/*/*.zip -d "$installation_folder/resources" || handle_error "Error: Unzip failed for : "$installation_folder"/"$TMP_FOLDER_LOCATION"/*/*.zip"
+            rm -rf "$installation_folder"/"$TMP_FOLDER_LOCATION"/*
         fi
     fi
 }
@@ -194,7 +173,7 @@ download_scripts_and_tools () {
 #####################################################################################
 write_to_constants_file () {
     echo "Writing directoy paths to the Constants file..."
-    cat /tmp/tmp.txt >> $root_folder"/${CONSTANTS_FILE_LOCATION}"
+    cat /tmp/tmp.txt >> $installation_folder/"/${CONSTANTS_FILE_LOCATION}"
 }
 
 #####################################################################################
@@ -205,26 +184,48 @@ write_to_constants_file () {
 set_path_variable () {
 
     ## file paths
-    APKTOOL_JAR_PATH="$root_folder/${OTHER_TOOLS_LOCATION}/apktool.jar"
-    SQLMAP_PATH="$root_folder/${OTHER_TOOLS_LOCATION}/sqlmap-dev/sqlmap.py"
-    NIKTO_PATH="$root_folder/${OTHER_TOOLS_LOCATION}/nikto-master/program/nikto.pl"
-    ENJARIFY_PATH="$root_folder/${OTHER_TOOLS_LOCATION}/enjarify-master/enjarify.sh"
-    JDGUI_PATH="$root_folder/${OTHER_TOOLS_LOCATION}/jd-core.jar"
+    APKTOOL_JAR_PATH="$installation_folder/${OTHER_TOOLS_LOCATION}/apktool.jar"
+    SQLMAP_PATH="$installation_folder/${OTHER_TOOLS_LOCATION}/sqlmap-dev/sqlmap.py"
+    NIKTO_PATH="$installation_folder/${OTHER_TOOLS_LOCATION}/nikto-master/program/nikto.pl"
+    ENJARIFY_PATH="$installation_folder/${OTHER_TOOLS_LOCATION}/enjarify-master/enjarify.sh"
+    JDGUI_PATH="$installation_folder/${OTHER_TOOLS_LOCATION}/jd-core.jar"
 
     ##  Write tool's paths to the bash profile
     cp -f ${BASH_PROFILE_PATH} ${BACKUP_BASH_PROFILE_PATH}
     echo "######## Added by security tool on $( date )" >> ${BASH_PROFILE_PATH}
     echo "######## Old bash_profile is at : ${BACKUP_BASH_PROFILE_PATH}" >> ${BASH_PROFILE_PATH}
-    echo "export PATH=$PATH:$root_folder/${OTHER_TOOLS_LOCATION}:$root_folder/${OTHER_TOOLS_LOCATION}\n" >> ${BASH_PROFILE_PATH}
-    echo "export apktool=\"java -jar ${APKTOOL_JAR_PATH}\"" >> ${BASH_PROFILE_PATH}
-    echo "export sqlmap=\"python3 ${SQLMAP_PATH}\"" >> ${BASH_PROFILE_PATH}
-    echo "export nikto=\"perl ${NIKTO_PATH}\"" >> ${BASH_PROFILE_PATH}
-    echo "export enjarify=\".$root_folder/${OTHER_TOOLS_LOCATION}/enjarify-master/enjarify.sh\"" >> ${BASH_PROFILE_PATH}
-    echo "export jdgui=\"java -jar ${JDGUI_PATH}\"" >> ${BASH_PROFILE_PATH}
+    echo "export PATH=$PATH:$installation_folder/${OTHER_TOOLS_LOCATION}:$installation_folder/${OTHER_TOOLS_LOCATION}\n" >> ${BASH_PROFILE_PATH}
+    echo "alias apktool=\"java -jar ${APKTOOL_JAR_PATH}\"" >> ${BASH_PROFILE_PATH}
+    echo "alias sqlmap=\"python ${SQLMAP_PATH}\"" >> ${BASH_PROFILE_PATH}
+    echo "alias nikto=\"perl ${NIKTO_PATH}\"" >> ${BASH_PROFILE_PATH}
+    echo "alias enjarify=\".$installation_folder/${OTHER_TOOLS_LOCATION}/enjarify-master/enjarify.sh\"" >> ${BASH_PROFILE_PATH}
+    echo "alias jdgui=\"java -jar ${JDGUI_PATH}\"" >> ${BASH_PROFILE_PATH}
     source ${BASH_PROFILE_PATH}
 }
 
-usage "${@}"
+############## Main()
+while getopts h:p: option
+do
+case "${option}"
+in
+h)
+    echo -e "Usage: $usage"
+    exit 0
+    ;;
+p)
+    installation_folder=$2
+        if [ ! -d "installation_folder/" ]
+        then
+            echo "Please enter an existent folder on the machine"
+        fi
+        echo "${installation_folder} exists, proceeding with installation..."
+     ;;
+*)
+    handle_error "Invalid Argument!!\nUsage: $usage"
+    ;;
+esac
+done
+
 check_if_python_installed
 check_if_java_installed
 create_folder_structure "${folder_structure[@]}"
