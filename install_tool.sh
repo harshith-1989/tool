@@ -198,9 +198,10 @@ set_path_variable () {
     echo "alias apktool=\"java -jar ${APKTOOL_JAR_PATH}\"" >> ${BASH_PROFILE_PATH}
     echo "alias sqlmap=\"python ${SQLMAP_PATH}\"" >> ${BASH_PROFILE_PATH}
     echo "alias nikto=\"perl ${NIKTO_PATH}\"" >> ${BASH_PROFILE_PATH}
-    echo "alias enjarify=\".$installation_folder/${OTHER_TOOLS_LOCATION}/enjarify-master/enjarify.sh\"" >> ${BASH_PROFILE_PATH}
+    echo "alias enjarify=\"$installation_folder/${OTHER_TOOLS_LOCATION}/enjarify-master/enjarify.sh\"" >> ${BASH_PROFILE_PATH}
     echo "alias jdgui=\"java -jar ${JDGUI_PATH}\"" >> ${BASH_PROFILE_PATH}
-    source ${BASH_PROFILE_PATH}
+    . ${BASH_PROFILE_PATH}
+    echo "Please restart the terminal for the changes to take effect"
 }
 
 ############## Main()
@@ -213,7 +214,7 @@ h)
     exit 0
     ;;
 p)
-    installation_folder=$2
+    installation_folder=${OPTARG}
         if [ ! -d "installation_folder/" ]
         then
             echo "Please enter an existent folder on the machine"
