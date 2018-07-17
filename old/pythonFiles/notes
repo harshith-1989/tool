@@ -1,0 +1,33 @@
+notes
+
+
+xmlTree = ET.parse('/Users/a391141/sample/AndroidManifest.xml')
+root = xmlTree.getroot()
+xmldict = XmlDictConfig(root)
+
+
+
+<?xml version="1.0"?>
+<Test>
+	<title>1</title>
+	<ID>2</ID>
+	<command>3</command>
+	<verification_type>4</verification_type>
+	<tool_used>5</tool_used>
+	<description>6</description>
+	<resolution>7</resoution>
+</Test>
+
+
+# if no matches found, log the custom permission
+                    logging.info("{} name : {} is a custom permission present in android_manifest.xml file".format(
+                        permission_or_feature[permission_or_feature_id],
+                        permission_or_feature[permission_or_feature_name])
+                    )
+
+                    execution_output = "{}\n{} name : {} is custom permission present in android_manifest.xml file".format(
+                        execution_output,
+                        permission_or_feature[permission_or_feature_id],
+                        permission_or_feature[permission_or_feature_name]
+                    )
+
