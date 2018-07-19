@@ -14,6 +14,7 @@ PIP_CHECK_INSTALLATION_CMD='python3 -m pip -V'
 PIP_INSTALLATION_CMD='python3 -m ensurepip'
 PIP_UPDATE_CMD='python3 -m pip install --upgrade pip'
 
+SECURITY_TESTING_TOOLS=("nmap" "sqlmap" "apktool" "nikto")
 BASIC_PATH_SETTINGS_FOR_BASH_PROFILE='/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
 
 ### error handling function
@@ -43,7 +44,7 @@ check_for_homebrew_installed () {
     fi
 }
 
-######################################################################################
+#####################################################################################
 # function desc : check for java installation and the version, this function was wriite
 # arguments : none
 # return value : none
@@ -97,6 +98,20 @@ check_for_pip_installed () {
     fi
 }
 
+check_for_test_tools_installation () {
+    for security_test_tool in "${SECURITY_TESTING_TOOLS[@]}"
+    do
+        if brew ls --versions $security_test_tool > /dev/null; then
+        # The package is installed
+            echo -e "$security_test_tool installed..."
+            brew upgrade $security_test_tool || echo -e "$security_test_tool upgrade failed, please try upgrading manually"
+        else
+        # The package is not installed
+            echo -e "$security_test_tool not installed"
+            brew install $security_test_tool || handle_error "$2\n $security_test_tool installation failed, please install manually"
+        fi
+    done
+}
 check_for_xcode_command_line_tools_installed
 check_for_homebrew_installed
 check_if_java_installed
