@@ -43,7 +43,7 @@ check_for_homebrew_installed () {
     fi
 }
 
-#####################################################################################
+######################################################################################
 # function desc : check for java installation and the version, this function was wriite
 # arguments : none
 # return value : none
