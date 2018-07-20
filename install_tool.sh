@@ -13,6 +13,21 @@
     internal_download_url='http://localhost/~digitalsecurity/downloads/tool-master.zip'
     proxy_address='proxy.tcs.com'
 
+## Tools to be installed
+    XCODE_COMMAND_LINE_TOOLS_CHECK_INSTALLATION_CMD='pkgutil --pkg-info=com.apple.pkg.CLTools_Executables'
+
+    HOMEBREW_CHECK_INSTALLATION_CMD='which -s brew'
+    HOMEBREW_INSTALLATION_CMD='ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"'
+    HOMEBREW_UPDATE_CMD='HOMEBREW_NO_AUTO_UPDATE=1; brew update'
+    SET_HOMEBREW_AUTO_UPDATE_FALSE='HOMEBREW_NO_AUTO_UPDATE=1 brew bundle'
+    BREW_INSTALL_LOCATION='/usr/local/bin'
+
+    PIP_CHECK_INSTALLATION_CMD='python3 -m pip -V'
+    PIP_INSTALLATION_CMD='python3 -m ensurepip'
+    PIP_UPDATE_CMD='python3 -m pip install --upgrade pip'
+
+    SECURITY_TESTING_TOOLS=("nmap" "sqlmap" "apktool" "nikto")
+
 ## File paths
     downloaded_tool_zip='.tmp/tool.zip'
     BASH_PROFILE_PATH="${HOME}/.bash_profile"
@@ -20,6 +35,8 @@
     TMP_FOLDER_LOCATION=".tmp"
     OTHER_TOOLS_LOCATION="resources/other_tools"
     CONSTANTS_FILE_LOCATION="Scripts/Constants.py"
+    BASIC_PATH_SETTINGS_FOR_BASH_PROFILE='/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin'
+
 ## folder structures
     folder_structure=( "RESOURCE_FOLDER:resources" "INPUT_IOS_FOLDER:input/iOS" "INPUT_ANDROID_FOLDER:input/Android" "OUTPUT_IOS_FOLDER:output/iOS" "OUTPUT_ANDROID_FOLDER:output/Android" "LOGS_IOS_FOLDER:logs/iOS" "LOGS_ANDROID_FOLDER:logs/Android" "TMP_FOLDER:.tmp" "REPORT_FOLDER:report" )
 
@@ -30,7 +47,11 @@
 # temp folder for the temp operations
 # Report folder for the report operations
 
-### error handling function
+#####################################################################################
+# function desc : called during an unpassable exception
+# arguments : error string
+# return value : none
+#####################################################################################
 handle_error () {
     echo "$1"
     echo "Aborting..."
@@ -49,6 +70,34 @@ reachability_check () {
         echo "TRUE"
     else
         echo "FALSE"
+    fi
+}
+
+#####################################################################################
+# function desc : check for xcode command line tools installation and the version
+# arguments : none
+# return value : none
+#####################################################################################
+check_for_xcode_command_line_tools_installed (){
+    $XCODE_COMMAND_LINE_TOOLS_CHECK_INSTALLATION_CMD  &> /dev/null || ( xcode-select --install; handle_error "$2 \n Please install xcode command line tools before proceeding" )
+    echo -e "XCode command line tools installed on system..."
+}
+
+#####################################################################################
+# function desc : check for homebrew installation and the version
+# arguments : none
+# return value : none
+#####################################################################################
+check_for_homebrew_installed () {
+    $HOMEBREW_CHECK_INSTALLATION_CMD  &> /dev/null
+    if [[ $? != 0 ]] ; then
+        # Install Homebrew
+        echo -e "Homebrew not installed, installing Homebrew..."
+        $HOMEBREW_INSTALLATION_CMD  &> /dev/null || handle_error "$2\n Homebrew installation failed, please install homebrew manually and retry..."
+        $SET_HOMEBREW_AUTO_UPDATE_FALSE
+    else
+        echo -e "Homebrew installed, trying to update Homebrew... This may take some time."
+        $HOMEBREW_UPDATE_CMD  &> /dev/null  || echo -e "$2\n Homebrew update failed, please update homebrew manually and retry..."
     fi
 }
 
@@ -88,6 +137,44 @@ check_if_python_installed() {
             echo "${python_executable} is a pre-requisite. Its either not installed or not in path." && handle_error "$execution_output"
         else
             echo "$execution_output version of python is installed on system"
+        fi
+    done
+}
+
+#####################################################################################
+# function desc : check for pip installation and the version
+# arguments : none
+# return value : none
+#####################################################################################
+check_for_pip_installed () {
+    $PIP_CHECK_INSTALLATION_CMD  &> /dev/null
+    if [[ $? != 0 ]] ; then
+        # Install Homebrew
+        echo -e "Python3 pip not installed, installing..."
+        $PIP_INSTALLATION_CMD  &> /dev/null || handle_error "$2\n Python3 pip installation failed, please install pip manually and retry..."
+        $SET_HOMEBREW_AUTO_UPDATE_FALSE
+    else
+        echo -e "Python3 pip installed, trying to update pip... This may take some time."
+        $PIP_UPDATE_CMD  &> /dev/null  || echo -e "$2\n Python3 pip update failed, please update pip manually and retry..."
+    fi
+}
+
+#####################################################################################
+# function desc : check for test-tools installation and the version
+# arguments : none
+# return value : none
+#####################################################################################
+check_for_test_tools_installation () {
+    for security_test_tool in "${SECURITY_TESTING_TOOLS[@]}"
+    do
+        if brew ls --versions $security_test_tool > /dev/null; then
+        # The package is installed
+            echo -e "$security_test_tool installed..."
+            brew install $security_test_tool || echo -e "$security_test_tool installation failed, please try installting manually"
+        else
+        # The package is not installed
+            echo -e "$security_test_tool not installed"
+            brew upgrade $security_test_tool || handle_error "$2\n $security_test_tool upgrade failed, please upgrade manually"
         fi
     done
 }
@@ -182,11 +269,8 @@ write_to_constants_file () {
 # return value : none
 #####################################################################################
 set_path_variable () {
-
     ## file paths
-    APKTOOL_JAR_PATH="$installation_folder/${OTHER_TOOLS_LOCATION}/apktool.jar"
-    SQLMAP_PATH="$installation_folder/${OTHER_TOOLS_LOCATION}/sqlmap-dev/sqlmap.py"
-    NIKTO_PATH="$installation_folder/${OTHER_TOOLS_LOCATION}/nikto-master/program/nikto.pl"
+    SQLMAP_PATH="$BREW_INSTALL_LOCATION/sqlmap"
     ENJARIFY_PATH="$installation_folder/${OTHER_TOOLS_LOCATION}/enjarify-master/enjarify.sh"
     JDGUI_PATH="$installation_folder/${OTHER_TOOLS_LOCATION}/jd-core.jar"
 
@@ -195,9 +279,7 @@ set_path_variable () {
     echo "######## Added by security tool on $( date )" >> ${BASH_PROFILE_PATH}
     echo "######## Old bash_profile is at : ${BACKUP_BASH_PROFILE_PATH}" >> ${BASH_PROFILE_PATH}
     echo "export PATH=$PATH:$installation_folder/${OTHER_TOOLS_LOCATION}:$installation_folder/${OTHER_TOOLS_LOCATION}\n" >> ${BASH_PROFILE_PATH}
-    echo "alias apktool=\"java -jar ${APKTOOL_JAR_PATH}\"" >> ${BASH_PROFILE_PATH}
     echo "alias sqlmap=\"python ${SQLMAP_PATH}\"" >> ${BASH_PROFILE_PATH}
-    echo "alias nikto=\"perl ${NIKTO_PATH}\"" >> ${BASH_PROFILE_PATH}
     echo "alias enjarify=\"$installation_folder/${OTHER_TOOLS_LOCATION}/enjarify-master/enjarify.sh\"" >> ${BASH_PROFILE_PATH}
     echo "alias jdgui=\"java -jar ${JDGUI_PATH}\"" >> ${BASH_PROFILE_PATH}
     . ${BASH_PROFILE_PATH}
@@ -215,9 +297,9 @@ h)
     ;;
 p)
     installation_folder=${OPTARG}
-        if [ ! -d "installation_folder/" ]
+        if [ ! -d "$installation_folder" ]
         then
-            echo "Please enter an existent folder on the machine"
+            handle_error "Please enter an existent folder on the machine"
         fi
         echo "${installation_folder} exists, proceeding with installation..."
      ;;
@@ -227,8 +309,14 @@ p)
 esac
 done
 
-check_if_python_installed
+reachability_check 8.8.8.8 || handle_error "Please check internet connection & try again"
+
+check_for_xcode_command_line_tools_installed
+check_for_homebrew_installed
 check_if_java_installed
+check_if_python_installed
+check_for_pip_installed
+check_for_test_tools_installation
 create_folder_structure "${folder_structure[@]}"
 download_scripts_and_tools
 #configure_the_tool
