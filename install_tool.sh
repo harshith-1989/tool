@@ -79,8 +79,8 @@ reachability_check () {
 # return value : none
 #####################################################################################
 check_for_xcode_command_line_tools_installed (){
-    $XCODE_COMMAND_LINE_TOOLS_CHECK_INSTALLATION_CMD  &> /dev/null || ( xcode-select --install; handle_error "$2 \n Please install xcode command line tools before proceeding" )
-    echo -e "XCode command line tools installed on system..."
+    $XCODE_COMMAND_LINE_TOOLS_CHECK_INSTALLATION_CMD  &> /dev/null || ( xcode-select --install; handle_error "Please install xcode command line tools before proceeding" )
+    echo "XCode command line tools installed on system..."
 }
 
 #####################################################################################
@@ -92,12 +92,12 @@ check_for_homebrew_installed () {
     $HOMEBREW_CHECK_INSTALLATION_CMD  &> /dev/null
     if [[ $? != 0 ]] ; then
         # Install Homebrew
-        echo -e "Homebrew not installed, installing Homebrew..."
-        $HOMEBREW_INSTALLATION_CMD  &> /dev/null || handle_error "$2\n Homebrew installation failed, please install homebrew manually and retry..."
+        echo "Homebrew not installed, installing Homebrew..."
+        $HOMEBREW_INSTALLATION_CMD  &> /dev/null || handle_error "Homebrew installation failed, please install homebrew manually and retry..."
         $SET_HOMEBREW_AUTO_UPDATE_FALSE
     else
-        echo -e "Homebrew installed, trying to update Homebrew... This may take some time."
-        $HOMEBREW_UPDATE_CMD  &> /dev/null  || echo -e "$2\n Homebrew update failed, please update homebrew manually and retry..."
+        echo "Homebrew installed, trying to update Homebrew... This may take some time."
+        $HOMEBREW_UPDATE_CMD  &> /dev/null  || echo "Homebrew update failed, please update homebrew manually and retry if needed..."
     fi
 }
 
@@ -150,12 +150,11 @@ check_for_pip_installed () {
     $PIP_CHECK_INSTALLATION_CMD  &> /dev/null
     if [[ $? != 0 ]] ; then
         # Install Homebrew
-        echo -e "Python3 pip not installed, installing..."
-        $PIP_INSTALLATION_CMD  &> /dev/null || handle_error "$2\n Python3 pip installation failed, please install pip manually and retry..."
-        $SET_HOMEBREW_AUTO_UPDATE_FALSE
+        echo "Python3 pip not installed, installing..."
+        $PIP_INSTALLATION_CMD  &> /dev/null || handle_error "Python3 pip installation failed, please install pip manually and retry..."
     else
-        echo -e "Python3 pip installed, trying to update pip... This may take some time."
-        $PIP_UPDATE_CMD  &> /dev/null  || echo -e "$2\n Python3 pip update failed, please update pip manually and retry..."
+        echo "Python3 pip installed, trying to update pip... This may take some time."
+        $PIP_UPDATE_CMD  &> /dev/null  || echo "Python3 pip update failed, please update pip manually and retry..."
     fi
 }
 
@@ -169,12 +168,13 @@ check_for_test_tools_installation () {
     do
         if brew ls --versions $security_test_tool > /dev/null; then
         # The package is installed
-            echo -e "$security_test_tool installed..."
-            brew install $security_test_tool || echo -e "$security_test_tool installation failed, please try installting manually"
+            echo "$security_test_tool installed..."
+            brew upgrade $security_test_tool > /dev/null
         else
         # The package is not installed
-            echo -e "$security_test_tool not installed"
-            brew upgrade $security_test_tool || handle_error "$2\n $security_test_tool upgrade failed, please upgrade manually"
+            echo "$security_test_tool not installed"
+            brew install $security_test_tool > /dev/null || handle_error "$security_test_tool installation failed, please try installing manually"
+
         fi
     done
 }
@@ -185,13 +185,14 @@ check_for_test_tools_installation () {
 # return value : boolean, string
 #####################################################################################
 create_folder_structure () {
+    rm -f /tmp/tmp.txt
     for folder in "${@}"
     do
         KEY="${folder%%:*}"
         VALUE="${folder#*:}"
         echo "Creating folder : ${VALUE} at ${installation_folder}/${VALUE}"
         mkdir -p "$installation_folder/""$VALUE" || handle_error "Unable to create folder, please make sure you have appropriate permissions"
-        echo -e "$KEY = \"$installation_folder/$VALUE\"\n" >> /tmp/tmp.txt
+        echo "$KEY = \"$installation_folder/$VALUE\"\n" >> /tmp/tmp.txt
     done
 }
 
@@ -231,7 +232,7 @@ download_scripts_and_tools () {
     mkdir -p $( dirname $downloaded_tool_zip ) || handle_error "Unable to create folder, please make sure you have appropriate permissions"
 #Download the tool
     curl_command="curl -k -L $download_url -o $downloaded_tool_zip"
-    $( $curl_command ) || echo "cURL command failed with error"
+    $( $curl_command ) > /dev/null || echo "cURL command failed with error"
 #Check zip file structure
     if [ -e $downloaded_tool_zip ]
     then
@@ -247,7 +248,7 @@ download_scripts_and_tools () {
             cp -rf "$installation_folder"/"$TMP_FOLDER_LOCATION"/*/Scripts "$installation_folder/"
             rm -rf "$installation_folder"/"$TMP_FOLDER_LOCATION"/*/Scripts
 
-            unzip "$installation_folder"/"$TMP_FOLDER_LOCATION"/*/*.zip -d "$installation_folder/resources" || handle_error "Error: Unzip failed for : "$installation_folder"/"$TMP_FOLDER_LOCATION"/*/*.zip"
+            unzip "$installation_folder"/"$TMP_FOLDER_LOCATION"/*/*.zip -d "$installation_folder/resources" >> /dev/null || handle_error "Error: Unzip failed for : "$installation_folder"/"$TMP_FOLDER_LOCATION"/*/*.zip"
             rm -rf "$installation_folder"/"$TMP_FOLDER_LOCATION"/*
         fi
     fi
@@ -284,6 +285,7 @@ set_path_variable () {
     echo "alias jdgui=\"java -jar ${JDGUI_PATH}\"" >> ${BASH_PROFILE_PATH}
     . ${BASH_PROFILE_PATH}
     echo "Please restart the terminal for the changes to take effect"
+    echo "The tool is configured at ${installation_folder}"
 }
 
 ############## Main()
@@ -309,7 +311,6 @@ p)
 esac
 done
 
-reachability_check 8.8.8.8 || handle_error "Please check internet connection & try again"
 
 check_for_xcode_command_line_tools_installed
 check_for_homebrew_installed
@@ -319,6 +320,5 @@ check_for_pip_installed
 check_for_test_tools_installation
 create_folder_structure "${folder_structure[@]}"
 download_scripts_and_tools
-#configure_the_tool
 write_to_constants_file
 set_path_variable
